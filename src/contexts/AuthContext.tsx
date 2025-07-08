@@ -9,6 +9,7 @@ interface AuthContextType {
   signUp: (email: string, password: string, username: string) => Promise<{ error: any }>;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
+  checkAdminStatus: () => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -75,6 +76,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await supabase.auth.signOut();
   };
 
+  const checkAdminStatus = async (): Promise<boolean> => {
+    if (!user) return false;
+    
+    try {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('is_admin, is_moderator')
+        .eq('user_id', user.id)
+        .single();
+      
+      return profile?.is_admin || profile?.is_moderator || false;
+    } catch (error) {
+      console.error('Error checking admin status:', error);
+      return false;
+    }
+  };
+
   const value = {
     user,
     session,
@@ -82,6 +100,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     signUp,
     signIn,
     signOut,
+    checkAdminStatus,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

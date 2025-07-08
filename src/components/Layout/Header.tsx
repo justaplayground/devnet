@@ -87,9 +87,9 @@ const Header = () => {
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
-                    <Link to="/admin" className="cursor-pointer">
+                    <Link to="/admin/login" className="cursor-pointer">
                       <Shield className="mr-2 h-4 w-4" />
-                      Admin
+                      Admin Panel
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
