@@ -1,73 +1,87 @@
-# Welcome to your Lovable project
+# DevCommunity
 
-## Project info
+## Project Overview
 
-**URL**: https://lovable.dev/projects/9e9249dd-de26-45bd-9f6f-bd35b5ae4cb4
+DevCommunity is a modern, open-source platform for developers to share knowledge, publish posts, and connect with the community. Built with Vite, React, TypeScript, shadcn-ui, and Tailwind CSS, it features a clean, responsive UI and a robust backend powered by Supabase.
 
-## How can I edit this code?
+## Features
 
-There are several ways of editing your application.
+- 📝 **Post Creation & Feed**: Write, publish, and browse posts with rich content and tags.
+- 🔍 **Tag System**: Discover and filter content by popular tags.
+- 👤 **User Authentication**: Sign up, sign in, and manage your profile securely (Supabase Auth).
+- 🏆 **Admin Dashboard**: Manage users, posts, and platform stats (admin access required).
+- 📊 **Engagement**: Like, comment, bookmark, and view post stats.
+- ⚡ **Modern UI**: Responsive, accessible, and themeable design inspired by Dev.to.
+- 🛡️ **Role-based Access**: Admin and moderator roles for platform management.
 
-**Use Lovable**
+## Technologies Used
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/9e9249dd-de26-45bd-9f6f-bd35b5ae4cb4) and start prompting.
+- [Vite](https://vitejs.dev/) (build tool)
+- [React](https://react.dev/) + [TypeScript](https://www.typescriptlang.org/)
+- [shadcn-ui](https://ui.shadcn.com/) (UI components)
+- [Tailwind CSS](https://tailwindcss.com/) (utility-first CSS)
+- [Supabase](https://supabase.com/) (database & auth)
 
-Changes made via Lovable will be committed automatically to this repo.
+## Getting Started
 
-**Use your preferred IDE**
+### Prerequisites
+- [Node.js](https://nodejs.org/) (v18+ recommended)
+- [npm](https://www.npmjs.com/) or [pnpm](https://pnpm.io/) or [yarn](https://yarnpkg.com/)
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
+### Installation
 
 ```sh
-# Step 1: Clone the repository using the project's Git URL.
+# 1. Clone the repository
 git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
 cd <YOUR_PROJECT_NAME>
 
-# Step 3: Install the necessary dependencies.
-npm i
+# 2. Install dependencies
+npm install
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+# 3. Start the development server
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+The app will be available at [http://localhost:8080](http://localhost:8080) by default.
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+### Project Structure
 
-**Use GitHub Codespaces**
+- `src/` — Main source code
+  - `components/` — UI components (including Layout, PostCard, UI primitives)
+  - `contexts/` — React context providers (e.g., Auth)
+  - `hooks/` — Custom React hooks
+  - `integrations/supabase/` — Supabase client and types
+  - `lib/` — Utility functions
+  - `pages/` — Main page components (Index, Auth, Admin, etc.)
+- `public/` — Static assets
+- `supabase/` — Supabase config and migrations
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+### Environment & Configuration
 
-## What technologies are used for this project?
+- **Supabase**: The project is pre-configured with a Supabase project. If you wish to use your own, update the credentials in `src/integrations/supabase/client.ts`.
+- **Port**: The dev server runs on port 8080 by default (see `vite.config.ts`).
+- **Tailwind**: Custom theme and utility classes are defined in `tailwind.config.ts` and `src/index.css`.
 
-This project is built with:
+### Admin Access
+- The admin dashboard is accessible only to users with admin or moderator roles.
+- Default admin credentials are seeded in the Supabase migrations (see `supabase/migrations/`).
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+## Deployment
 
-## How can I deploy this project?
+To build for production:
 
-Simply open [Lovable](https://lovable.dev/projects/9e9249dd-de26-45bd-9f6f-bd35b5ae4cb4) and click on Share -> Publish.
+```sh
+npm run build
+```
 
-## Can I connect a custom domain to my Lovable project?
+To preview the production build locally:
 
-Yes, you can!
+```sh
+npm run preview
+```
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+You can deploy the output in the `dist/` directory to any static hosting provider (e.g., Vercel, Netlify, Cloudflare Pages).
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+## License
+
+This project is open-source and available under the [MIT License](LICENSE).
