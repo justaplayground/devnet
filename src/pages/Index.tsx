@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import Header from '@/components/Layout/Header';
 import Sidebar from '@/components/Layout/Sidebar';
+import RightSidebar from '@/components/Layout/RightSidebar';
 import PostCard from '@/components/PostCard';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
@@ -63,9 +64,9 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      <div className="flex">
+      <div className="flex max-w-7xl mx-auto w-full">
         <Sidebar />
-        <main className="flex-1 p-6">
+        <main className="flex-1 p-6 max-w-2xl w-full mx-auto">
           {/* Hero Section */}
           <div className="bg-gradient-hero rounded-xl p-8 mb-8 text-white">
             <div className="max-w-3xl">
@@ -118,6 +119,7 @@ const Index = () => {
             )}
           </div>
         </main>
+        <RightSidebar />
       </div>
     </div>
   );
