@@ -1,8 +1,8 @@
-# DevCommunity
+# DevNet
 
 ## Project Overview
 
-DevCommunity is a modern, open-source platform for developers to share knowledge, publish posts, and connect with the community. Built with Vite, React, TypeScript, shadcn-ui, and Tailwind CSS, it features a clean, responsive UI and a robust backend powered by Supabase.
+DevNet is a modern, open-source platform for developers to share knowledge, publish posts, and connect with the community. Built with Vite, React, TypeScript, shadcn-ui, and Tailwind CSS, it features a clean, responsive UI and a robust backend powered by Supabase.
 
 ## Features
 
