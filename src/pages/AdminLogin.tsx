@@ -76,7 +76,7 @@ const AdminLogin = () => {
               <Input
                 id="admin-email"
                 type="email"
-                placeholder="admin@devcommunity.local"
+                placeholder="admin@devnet.local"
                 value={loginData.email}
                 onChange={(e) => setLoginData({ ...loginData, email: e.target.value })}
                 className="h-12 bg-muted/50 border-2 border-muted focus:border-primary transition-colors"

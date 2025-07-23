@@ -107,7 +107,7 @@ const Auth = () => {
             <span className="text-white font-bold text-xl">D</span>
           </div>
           <CardTitle className="text-2xl bg-gradient-text bg-clip-text text-transparent">
-            Welcome to DevCommunity
+            Welcome to DevNet
           </CardTitle>
           <CardDescription>
             Join the developer community and share your knowledge

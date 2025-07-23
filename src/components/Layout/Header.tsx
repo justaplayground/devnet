@@ -31,7 +31,7 @@ const Header = () => {
             <span className="text-white font-bold text-lg">D</span>
           </div>
           <span className="text-xl font-bold bg-gradient-text bg-clip-text text-transparent">
-            DevCommunity
+            DevNet
           </span>
         </Link>
 

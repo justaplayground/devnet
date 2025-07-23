@@ -55,7 +55,7 @@ const Index = () => {
           <div className="h-12 w-12 rounded-lg bg-gradient-primary flex items-center justify-center mx-auto mb-4">
             <span className="text-white font-bold text-xl">D</span>
           </div>
-          <p className="text-muted-foreground">Loading DevCommunity...</p>
+          <p className="text-muted-foreground">Loading DevNet...</p>
         </div>
       </div>
     );
@@ -71,7 +71,7 @@ const Index = () => {
           <div className="bg-gradient-hero rounded-xl p-8 mb-8 text-white">
             <div className="max-w-3xl">
               <h1 className="text-4xl font-bold mb-4">
-                Welcome to DevCommunity
+                Welcome to DevNet
               </h1>
               <p className="text-xl opacity-90 mb-6">
                 A place where developers share knowledge, learn from each other, and grow together.
