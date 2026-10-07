@@ -1,0 +1,79 @@
+---
+description: Core project context, stack, layout, and standards for DevNet
+alwaysApply: true
+---
+
+# DevNet — Core Agent Rules
+
+## Project nature
+
+- **Developer community SPA** (Dev.to–style): posts, tags, auth, engagement, and an admin dashboard.
+- **Not a monorepo / microservices app.** One Vite frontend talks to Supabase (Postgres + Auth + RLS).
+- **Roles matter:** admin and moderator gates for `/admin`; keep RBAC and input sanitization (e.g. markdown/HTML) intact.
+- **Primary overview:** `README.md`. There is no `docs/` product/requirements tree.
+
+## Stack
+
+| Layer | Choice |
+| ------- | -------- |
+| UI | React 18 + TypeScript + Vite 5 |
+| Routing | `react-router-dom` v6 (`basename="/devnet"`) |
+| Data | TanStack Query + `@supabase/supabase-js` |
+| UI kit | shadcn/ui (Radix) + Tailwind CSS |
+| Auth / DB | Supabase (`src/integrations/supabase/`, `supabase/migrations/`) |
+| Deploy | GitHub Actions → static `dist/` on Nginx (`justdemo.work`, project `devnet`) |
+
+Dev server: port **8080**. Production base path: **`/devnet/`** (see `vite.config.ts` and `App.tsx`).
+
+## Repo layout
+
+```
+src/
+  pages/           → Index, Auth, Write, Admin, AdminLogin, NotFound
+  components/      → Layout, PostCard, ui/* (shadcn)
+  contexts/        → AuthContext (Supabase session + admin check)
+  hooks/           → shared React hooks
+  integrations/supabase/ → client + generated types
+  lib/             → utilities (e.g. cn)
+public/            → static assets
+supabase/          → config + SQL migrations
+nginx.conf         → standalone Nginx site
+nginx.modular.conf → path-mounted deploy snippet
+.github/workflows/ → build + deploy
+```
+
+Path alias: `@` → `src/`.
+
+## Before changing behavior
+
+| Area | Look here |
+| ------ | ----------- |
+| Features / setup | `README.md` |
+| Routes / providers | `src/App.tsx`, `src/contexts/AuthContext.tsx` |
+| Schema / RLS / roles | `supabase/migrations/*.sql`, `src/integrations/supabase/types.ts` |
+| Supabase client | `src/integrations/supabase/client.ts` |
+| Deploy / base path | `vite.config.ts`, `nginx*.conf`, `.github/workflows/deploy.yml` |
+| UI primitives | `src/components/ui/*` (prefer `shadcn` CLI when adding components) |
+
+Prefer matching existing page/component patterns over inventing new layers.
+
+## Scope discipline
+
+- Minimize diff scope; match patterns in the touched area.
+- Do not commit secrets or real Supabase keys in `.env` / client config.
+- Do not add markdown/docs unless the user asks.
+- Do not introduce a backend service, Prisma, or monorepo packages unless explicitly requested — Supabase is the backend.
+
+## Diagrams
+
+When asked for architecture, DB, or process diagrams, use the matching skill under `.agents/skills/`:
+
+- `architecture-diagram`
+- `db-schema-diagram`
+- `process-flow-diagram`
+
+## Token discipline
+
+- Prefer `README.md` and the specific file you are changing over broad repo dumps.
+- Open Supabase migrations/types only when schema, RLS, or role behavior is in scope.
+- Do not assume Port-Vault / `docs/*` / `apps/*` / `services/*` layout — that is a different project.

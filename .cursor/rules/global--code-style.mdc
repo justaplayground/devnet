@@ -1,0 +1,49 @@
+---
+description: TypeScript style, Prettier, imports, and service module layout
+globs: **/*.{ts,tsx,js,jsx}
+alwaysApply: false
+---
+
+# Code Style & Module Layout
+
+## Prettier (`.prettierrc`)
+
+- `printWidth: 120`, `semi: true`, `singleQuote: true`, `bracketSameLine: true`, `arrowParens: always`
+- Run Prettier before committing; do not fight the formatter.
+
+## Imports
+
+```typescript
+// ✅ Workspace packages
+import { prisma } from '@repo/database';
+import { ProblemDetails } from '@repo/contracts';
+
+// ✅ Intra-package alias
+import { apiClient } from '~/lib/api-client';
+
+// ❌ Deep-import another package's internals
+import { something } from '@repo/database/prisma/foo';
+```
+
+Export public APIs through each package's `src/index.ts`.
+
+## Service module layout
+
+```
+services/content/src/modules/blog/
+  blog.controller.ts   # HTTP → service
+  blog.service.ts      # business rules
+  blog.repository.ts   # Prisma only
+  blog.schema.ts       # zod (from @repo/contracts)
+```
+
+Keep modules small and explicit — no hidden magic config.
+
+## Observability
+
+- Structured **JSON logs** with correlation ID propagated from gateway (`X-Correlation-Id`).
+- Every service exposes `GET /health`.
+
+## Comments
+
+Prefer self-explanatory code. Comment only non-obvious business rules or security constraints.
