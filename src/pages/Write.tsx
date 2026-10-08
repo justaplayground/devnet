@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
+import { api } from '@/lib/api';
 import MDEditor from '@uiw/react-md-editor';
 import rehypeSanitize from 'rehype-sanitize';
 import { ArrowLeft, Save, Eye, Plus, X } from 'lucide-react';
@@ -38,22 +38,15 @@ const Write = () => {
   };
 
   const removeTag = (tagToRemove: string) => {
-    setTags(tags.filter(tag => tag !== tagToRemove));
-  };
-
-  const generateSlug = (title: string) => {
-    return title
-      .toLowerCase()
-      .replace(/[^\w ]+/g, '')
-      .replace(/ +/g, '-');
+    setTags(tags.filter((tag) => tag !== tagToRemove));
   };
 
   const handleSave = async (status: 'draft' | 'published') => {
     if (!title.trim() || !content.trim()) {
       toast({
-        title: "Missing required fields",
-        description: "Please provide a title and content for your post.",
-        variant: "destructive",
+        title: 'Missing required fields',
+        description: 'Please provide a title and content for your post.',
+        variant: 'destructive',
       });
       return;
     }
@@ -61,71 +54,26 @@ const Write = () => {
     setIsLoading(true);
 
     try {
-      const slug = generateSlug(title);
-      
-      // Create the post
-      const { data: post, error: postError } = await supabase
-        .from('posts')
-        .insert({
-          title,
-          content,
-          excerpt: excerpt || content.slice(0, 200) + '...',
-          slug,
-          status,
-          author_id: user!.id,
-          published_at: status === 'published' ? new Date().toISOString() : null
-        })
-        .select()
-        .single();
-
-      if (postError) throw postError;
-
-      // Handle tags if any
-      if (tags.length > 0) {
-        for (const tagName of tags) {
-          // Check if tag exists or create it
-          let { data: existingTag } = await supabase
-            .from('tags')
-            .select('id')
-            .eq('name', tagName)
-            .single();
-
-          if (!existingTag) {
-            const { data: newTagData, error: tagError } = await supabase
-              .from('tags')
-              .insert({
-                name: tagName,
-                slug: generateSlug(tagName)
-              })
-              .select()
-              .single();
-
-            if (tagError) throw tagError;
-            existingTag = newTagData;
-          }
-
-          // Link tag to post
-          await supabase
-            .from('post_tags')
-            .insert({
-              post_id: post.id,
-              tag_id: existingTag.id
-            });
-        }
-      }
+      await api.createPost({
+        title,
+        content,
+        excerpt: excerpt || undefined,
+        status,
+        tags,
+      });
 
       toast({
-        title: status === 'published' ? "Post published!" : "Draft saved!",
+        title: status === 'published' ? 'Post published!' : 'Draft saved!',
         description: `Your post has been ${status === 'published' ? 'published' : 'saved as draft'} successfully.`,
       });
 
       navigate('/');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error saving post:', error);
       toast({
-        title: "Error saving post",
-        description: error.message || "Failed to save your post. Please try again.",
-        variant: "destructive",
+        title: 'Error saving post',
+        description: error instanceof Error ? error.message : 'Failed to save your post. Please try again.',
+        variant: 'destructive',
       });
     } finally {
       setIsLoading(false);
@@ -140,15 +88,9 @@ const Write = () => {
     <div className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto">
-          {/* Header */}
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-4">
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={() => navigate('/')}
-                className="gap-2"
-              >
+              <Button variant="ghost" size="sm" onClick={() => navigate('/')} className="gap-2">
                 <ArrowLeft className="h-4 w-4" />
                 Back to Home
               </Button>
@@ -156,11 +98,10 @@ const Write = () => {
             </div>
             <div className="flex items-center gap-2">
               <Button
-                variant={isPreview ? "default" : "outline"}
+                variant={isPreview ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => setIsPreview(!isPreview)}
-                className="gap-2"
-              >
+                className="gap-2">
                 <Eye className="h-4 w-4" />
                 {isPreview ? 'Edit' : 'Preview'}
               </Button>
@@ -169,8 +110,7 @@ const Write = () => {
                 size="sm"
                 onClick={() => handleSave('draft')}
                 disabled={isLoading}
-                className="gap-2"
-              >
+                className="gap-2">
                 <Save className="h-4 w-4" />
                 Save Draft
               </Button>
@@ -179,15 +119,13 @@ const Write = () => {
                 size="sm"
                 onClick={() => handleSave('published')}
                 disabled={isLoading}
-                className="gap-2"
-              >
+                className="gap-2">
                 Publish
               </Button>
             </div>
           </div>
 
           <div className="grid gap-6">
-            {/* Post Details */}
             <Card>
               <CardHeader>
                 <CardTitle>Post Details</CardTitle>
@@ -220,10 +158,7 @@ const Write = () => {
                     {tags.map((tag) => (
                       <Badge key={tag} variant="secondary" className="gap-1">
                         {tag}
-                        <button
-                          onClick={() => removeTag(tag)}
-                          className="hover:text-destructive"
-                        >
+                        <button onClick={() => removeTag(tag)} className="hover:text-destructive">
                           <X className="h-3 w-3" />
                         </button>
                       </Badge>
@@ -245,7 +180,6 @@ const Write = () => {
               </CardContent>
             </Card>
 
-            {/* Content Editor */}
             <Card>
               <CardHeader>
                 <CardTitle>Content</CardTitle>

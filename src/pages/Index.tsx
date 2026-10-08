@@ -4,13 +4,13 @@ import Sidebar from '@/components/Layout/Sidebar';
 import RightSidebar from '@/components/Layout/RightSidebar';
 import PostCard from '@/components/PostCard';
 import { Button } from '@/components/ui/button';
-import { supabase } from '@/integrations/supabase/client';
+import { api, type FeedPost } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { TrendingUp, Sparkles } from 'lucide-react';
 
 const Index = () => {
   const { loading } = useAuth();
-  const [posts, setPosts] = useState([]);
+  const [posts, setPosts] = useState<FeedPost[]>([]);
   const [loadingPosts, setLoadingPosts] = useState(true);
 
   useEffect(() => {
@@ -19,28 +19,8 @@ const Index = () => {
 
   const fetchPosts = async () => {
     try {
-      const { data, error } = await supabase
-        .from('posts')
-        .select(`
-          *,
-          profiles:author_id (username, display_name, avatar_url),
-          post_tags (
-            tags (name, color)
-          )
-        `)
-        .eq('status', 'published')
-        .order('created_at', { ascending: false })
-        .limit(10);
-
-      if (error) throw error;
-
-      const formattedPosts = data?.map(post => ({
-        ...post,
-        author: post.profiles,
-        tags: post.post_tags.map(pt => pt.tags)
-      })) || [];
-
-      setPosts(formattedPosts);
+      const { posts: data } = await api.getPosts();
+      setPosts(data);
     } catch (error) {
       console.error('Error fetching posts:', error);
     } finally {
@@ -67,12 +47,9 @@ const Index = () => {
       <div className="flex max-w-7xl mx-auto w-full">
         <Sidebar />
         <main className="flex-1 p-6 max-w-2xl w-full mx-auto">
-          {/* Hero Section */}
           <div className="bg-gradient-hero rounded-xl p-8 mb-8 text-white">
             <div className="max-w-3xl">
-              <h1 className="text-4xl font-bold mb-4">
-                Welcome to DevNet
-              </h1>
+              <h1 className="text-4xl font-bold mb-4">Welcome to DevNet</h1>
               <p className="text-xl opacity-90 mb-6">
                 A place where developers share knowledge, learn from each other, and grow together.
               </p>
@@ -81,7 +58,10 @@ const Index = () => {
                   <Sparkles className="mr-2 h-5 w-5" />
                   Explore Posts
                 </Button>
-                <Button variant="outline" size="lg" className="bg-white/10 border-white/20 text-white hover:bg-white/20">
+                <Button
+                  variant="outline"
+                  size="lg"
+                  className="bg-white/10 border-white/20 text-white hover:bg-white/20">
                   <TrendingUp className="mr-2 h-5 w-5" />
                   Trending Now
                 </Button>
@@ -89,14 +69,19 @@ const Index = () => {
             </div>
           </div>
 
-          {/* Posts Feed */}
           <div className="grid gap-6">
             <div className="flex items-center justify-between">
               <h2 className="text-2xl font-bold">Latest Posts</h2>
               <div className="flex gap-2">
-                <Button variant="outline" size="sm">Latest</Button>
-                <Button variant="ghost" size="sm">Trending</Button>
-                <Button variant="ghost" size="sm">Popular</Button>
+                <Button variant="outline" size="sm">
+                  Latest
+                </Button>
+                <Button variant="ghost" size="sm">
+                  Trending
+                </Button>
+                <Button variant="ghost" size="sm">
+                  Popular
+                </Button>
               </div>
             </div>
 

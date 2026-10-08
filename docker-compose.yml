@@ -1,0 +1,82 @@
+name: devnet
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-devnet}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-devnet}
+      POSTGRES_DB: ${POSTGRES_DB:-devnet}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-devnet} -d ${POSTGRES_DB:-devnet}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - devnet
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - devnet
+
+  api:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    # Localhost only — for Vite `npm run dev` proxy; production traffic goes through edge
+    ports:
+      - "127.0.0.1:4000:4000"
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      DATABASE_URL: postgresql://${POSTGRES_USER:-devnet}:${POSTGRES_PASSWORD:-devnet}@postgres:5432/${POSTGRES_DB:-devnet}
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@devnet.local}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-AdminPassword123!}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      CORS_ORIGIN: ${CORS_ORIGIN:-true}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - devnet
+
+
+  edge:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${EDGE_PORT:-8088}:80"
+    depends_on:
+      - api
+    networks:
+      - devnet
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  devnet:
+    name: devnet
+    driver: bridge

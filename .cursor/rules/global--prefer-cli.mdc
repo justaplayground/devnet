@@ -1,0 +1,35 @@
+---
+description: Prefer project CLIs and generators over hand-authoring scaffolded artifacts
+alwaysApply: true
+---
+
+# Prefer CLIs & Generators
+
+When a project or ecosystem CLI can create, install, update, or scaffold an artifact, **run that CLI** instead of writing the files by hand.
+
+## Prefer CLI when
+
+- Adding UI from a registry (e.g. `pnpm dlx shadcn@latest add …` / `npx shadcn@latest …`)
+- Package install / workspace scripts (`pnpm add`, `pnpm exec`, package.json scripts)
+- Schema tooling that owns generated output (e.g. Prisma migrate / generate)
+- Any scaffold/init/update command documented by a loaded skill (follow that skill’s CLI)
+
+Use the repo’s package runner (`pnpm` preferred when lockfile/scripts use it; otherwise `npx` / `pnpm dlx` as the skill specifies).
+
+## Hand-write when
+
+- Small edits to existing files (one-liners, wiring, bugfixes)
+- Project-specific business logic, routes, services, or tests with no generator
+- The CLI does not exist, fails, or the user asks for a manual approach
+
+## Token discipline
+
+- Prefer CLI for **large boilerplate** so the model does not stream full file bodies.
+- Skip heavy CLI discovery (`info --json`, multi-doc fetches) for tiny local tweaks.
+- After generate: read the new files, then wire them into port-vault patterns (`api--contracts.mdc`, `frontend--apps.mdc`, etc.).
+
+## Do not
+
+- Invent component/scaffold source that a CLI would produce identically
+- Fetch raw upstream files from GitHub when the official CLI can add/update them
+- Bypass skill CLI workflows (especially `.agents/skills/shadcn/`) when that skill applies

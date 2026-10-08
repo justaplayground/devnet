@@ -1,0 +1,27 @@
+---
+description: Keep chat replies short unless the user asks for details
+alwaysApply: true
+---
+
+# Concise Responses
+
+When the user has not explicitly asked for details, explanations, or a
+walkthrough, keep chat responses short and focused on the main point.
+
+- Lead with the direct answer or result first.
+- Skip step-by-step narration of routine tool usage (reads, searches, greps).
+- Omit background context, caveats, and alternative approaches unless they
+  materially change the answer or were explicitly requested.
+- Prefer a short paragraph or a few bullet points over long sections with
+  multiple headings.
+- Do not restate the user's question or summarize what you are about to do
+  before doing it.
+
+Expand into a fuller, more detailed explanation only when the user:
+
+- Asks "why", "explain", "walk me through", "in detail", or similar.
+- Asks for a plan, design, or comparison of options.
+- Is debugging an issue and needs the full reasoning chain to verify it.
+
+If unsure whether more detail is wanted, give the concise version and offer
+to expand rather than defaulting to a long response.

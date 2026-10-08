@@ -1,0 +1,29 @@
+---
+description: Avoid over-engineering — ship the simplest change that meets the request
+alwaysApply: true
+---
+
+# Avoid Over-Engineering
+
+Prefer the **smallest complete solution**. Do not add architecture, abstractions, or features that are not required by the current task or planning docs.
+
+## Do
+
+- Solve only what was asked; match existing patterns in the touched area
+- Reuse existing helpers, packages, and service layout before inventing new ones
+- Keep one concern per change; stop when acceptance criteria are met
+- Prefer straightforward code over clever generics, indirection, or configurability
+
+## Do not
+
+- Add speculative features, “future-proof” hooks, or unused options
+- Introduce new frameworks, layers, or packages without a clear need
+- Extract abstractions for a single call site
+- Expand scope into adjacent refactors, drive-by cleanups, or unsolicited docs
+- Add config flags, feature toggles, or plugin systems unless required
+
+## Exceptions
+
+Security, RBAC, validation, audit, and rate limits required by port-vault standards are **not** over-engineering — keep those even when the happy path is simple.
+
+If a larger design is needed, propose it briefly and wait for approval instead of building it.

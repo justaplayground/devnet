@@ -1,0 +1,78 @@
+---
+description: Core project context, stack, layout, and standards for DevNet
+alwaysApply: true
+---
+
+# DevNet — Core Agent Rules
+
+## Project nature
+
+- **Developer community SPA** (Dev.to–style): posts, tags, auth, engagement, and an admin dashboard.
+- **Not a monorepo.** One Vite frontend + one Fastify API (`server/`) talking to PostgreSQL and Redis on Docker Compose network `devnet`.
+- **Roles matter:** admin and moderator gates for `/admin`; keep RBAC and input sanitization (e.g. markdown/HTML) intact.
+- **Primary overview:** `README.md`. Deploy docs live under `docs/`.
+
+## Stack
+
+| Layer | Choice |
+| ------- | -------- |
+| UI | React 18 + TypeScript + Vite 5 |
+| Routing | `react-router-dom` v6 (`basename="/devnet"`) |
+| Data | TanStack Query + `src/lib/api.ts` (fetch, cookie credentials) |
+| UI kit | shadcn/ui (Radix) + Tailwind CSS |
+| Auth / DB | Fastify API + PostgreSQL + Redis (`server/`) |
+| Deploy | GitHub Actions → Docker Compose on Dellbuntu; host Nginx proxies `/devnet/` |
+
+Dev server: port **8080** (proxies `/devnet/api` → `:4000`). Production base path: **`/devnet/`**.
+
+## Repo layout
+
+```
+src/
+  pages/           → Index, Auth, Write, Admin, AdminLogin, NotFound
+  components/      → Layout, PostCard, ui/* (shadcn)
+  contexts/        → AuthContext (cookie session + admin flags)
+  hooks/           → shared React hooks
+  lib/             → api.ts, cn, utilities
+server/            → Fastify API, SQL migrations, Redis cache
+infra/nginx/       → edge (Compose) + modular/standalone host templates
+docs/              → DEPLOYMENT.md + diagrams
+docker-compose.yml → postgres, redis, api, edge on network `devnet`
+.github/workflows/ → deploy
+```
+
+Path alias: `@` → `src/`.
+
+## Before changing behavior
+
+| Area | Look here |
+| ------ | ----------- |
+| Features / setup | `README.md` |
+| Routes / providers | `src/App.tsx`, `src/contexts/AuthContext.tsx` |
+| Schema / roles | `server/db/migrations/`, `server/src/routes/` |
+| API client | `src/lib/api.ts` |
+| Deploy / base path | `vite.config.ts`, `docker-compose.yml`, `infra/nginx/`, `.github/workflows/deploy.yml`, `docs/DEPLOYMENT.md` |
+| UI primitives | `src/components/ui/*` (prefer `shadcn` CLI when adding components) |
+
+Prefer matching existing page/component patterns over inventing new layers.
+
+## Scope discipline
+
+- Minimize diff scope; match patterns in the touched area.
+- Do not commit secrets in `.env` / client config.
+- Do not add markdown/docs unless the user asks.
+- Do not reintroduce Supabase or invent a monorepo unless explicitly requested.
+
+## Diagrams
+
+When asked for architecture, DB, or process diagrams, use the matching skill under `.agents/skills/`:
+
+- `architecture-diagram`
+- `db-schema-diagram`
+- `process-flow-diagram`
+
+## Token discipline
+
+- Prefer `README.md` and the specific file you are changing over broad repo dumps.
+- Open `server/db/migrations` only when schema or role behavior is in scope.
+- Do not assume Port-Vault / `apps/*` / `services/*` layout — that is a different project.
