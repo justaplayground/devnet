@@ -4,13 +4,19 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
+    inputs:
+      force_npm_install:
+        description: "Bypass npm cache and run a cold install"
+        type: boolean
+        default: false
 
 permissions:
   actions: write
   contents: read
 
 env:
-  ORIGIN_SERVER_NAME: "justdemo.work"
+  ORIGIN_SERVER_NAME: "launch.giangnt.dev"
   PROJECT_NAME: "devnet"
   # BASE_API_URL: "/api"
 
@@ -21,19 +27,33 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Cached install (default). Skip this step when forcing a cold install.
       - uses: actions/setup-node@v4
+        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.force_npm_install) }}
+        with:
+          node-version: "20"
+          cache: npm
+
+      # Cold install path — no npm cache restore
+      - uses: actions/setup-node@v4
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.force_npm_install }}
         with:
           node-version: "20"
 
+      - name: Install dependencies
+        run: |
+          if [ "${{ github.event_name == 'workflow_dispatch' && inputs.force_npm_install }}" = "true" ]; then
+            npm cache clean --force
+            rm -rf node_modules
+          fi
+          npm ci --legacy-peer-deps
+
       - name: Build frontend
         run: |
-          npm i --legacy-peer-deps
           npm run build
-          # Replace placeholder with actual server name
-          sed -i "s/\${NGINX_SERVER_NAME}/${{ env.PROJECT_NAME }}.${{ env.ORIGIN_SERVER_NAME }}/g" nginx.conf
-          # Replace placeholder with actual project name
-          sed -i "s/\${PROJECT_NAME}/${{ env.PROJECT_NAME }}/g" nginx.modular.conf
-          cp nginx.modular.conf dist/
+          # Patch modular Nginx snippet into dist (active deploy path)
+          cp infra/nginx/modular.conf dist/nginx.modular.conf
+          sed -i "s/\${PROJECT_NAME}/${{ env.PROJECT_NAME }}/g" dist/nginx.modular.conf
 
       - name: Upload built artifacts
         uses: actions/upload-artifact@v4
@@ -60,25 +80,26 @@ jobs:
 
       - name: Deploy frontend to nginx folder
         run: |
-          sudo rm -rf /var/www/${{ env.PROJECT_NAME }}/dist
-          sudo cp -r dist /var/www/${{ env.PROJECT_NAME }}/dist
-          sudo cp -r dist/nginx.modular.conf /etc/nginx/includes/projects/${{ env.PROJECT_NAME }}.conf
-          # currently using modular style nginx config
-          # sudo ln -sf /etc/nginx/includes/projects/${{ env.PROJECT_NAME }}.conf /etc/nginx/includes/${{ env.PROJECT_NAME }}.conf  
+          WWW="/var/www/${{ env.PROJECT_NAME }}"
+          # Stage new build, then swap (avoids serving a half-copied tree)
+          rm -rf "$WWW/dist.next"
+          cp -r dist "$WWW/dist.next"
+          sudo cp "$WWW/dist.next/nginx.modular.conf" /etc/nginx/includes/projects/${{ env.PROJECT_NAME }}.conf
           sudo nginx -t
-          sudo systemctl restart nginx
+          if [ -d "$WWW/dist" ]; then
+            mv "$WWW/dist" "$WWW/dist.prev"
+          fi
+          mv "$WWW/dist.next" "$WWW/dist"
+          sudo nginx -s reload
+          rm -rf "$WWW/dist.prev"
 
       - name: Cleanup downloaded artifacts
         if: success()
         run: |
-          # Clean up downloaded artifacts from runner
           rm -rf dist
-          # Clean up any temporary files
           rm -rf /tmp/${{ env.PROJECT_NAME }}-* || true
 
-  # NOTE: This is commented out because it's not needed for now.
-  #       We should save the build minutes.
-  # Cleanup GitHub Actions artifacts
+  # NOTE: Commented out to save build minutes.
   # cleanup-artifacts:
   #   runs-on: ubuntu-latest
   #   needs: [build-frontend, deploy-frontend]
@@ -93,7 +114,7 @@ jobs:
   #             repo: context.repo.repo,
   #             run_id: context.runId,
   #           });
-
+  #
   #           for (const artifact of artifacts.data.artifacts) {
   #             await github.rest.actions.deleteArtifact({
   #               owner: context.repo.owner,

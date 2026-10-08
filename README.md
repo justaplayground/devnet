@@ -25,6 +25,7 @@ DevNet is a modern, open-source platform for developers to share knowledge, publ
 ## Getting Started
 
 ### Prerequisites
+
 - [Node.js](https://nodejs.org/) (v18+ recommended)
 - [npm](https://www.npmjs.com/) or [pnpm](https://pnpm.io/) or [yarn](https://yarnpkg.com/)
 
@@ -63,24 +64,20 @@ The app will be available at [http://localhost:8080](http://localhost:8080) by d
 - **Tailwind**: Custom theme and utility classes are defined in `tailwind.config.ts` and `src/index.css`.
 
 ### Admin Access
+
 - The admin dashboard is accessible only to users with admin or moderator roles.
 - Default admin credentials are seeded in the Supabase migrations (see `supabase/migrations/`).
 
 ## Deployment
 
-To build for production:
+Production deploys via GitHub Actions to Nginx on `launch.giangnt.dev/devnet/`. See **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)**.
+
+Local production build:
 
 ```sh
 npm run build
-```
-
-To preview the production build locally:
-
-```sh
 npm run preview
 ```
-
-You can deploy the output in the `dist/` directory to any static hosting provider (e.g., Vercel, Netlify, Cloudflare Pages).
 
 ## License
 
