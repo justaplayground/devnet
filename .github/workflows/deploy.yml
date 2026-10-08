@@ -1,125 +1,69 @@
-name: 🚀 Deploy to Nginx | Dellbuntu
+name: 🚀 Deploy Docker Compose | Dellbuntu
 
 on:
   push:
     branches:
       - main
   workflow_dispatch:
-    inputs:
-      force_npm_install:
-        description: "Bypass npm cache and run a cold install"
-        type: boolean
-        default: false
 
 permissions:
-  actions: write
   contents: read
 
 env:
   ORIGIN_SERVER_NAME: "launch.giangnt.dev"
   PROJECT_NAME: "devnet"
-  # BASE_API_URL: "/api"
+  DEPLOY_DIR: "/var/www/devnet"
+  EDGE_PORT: "8088"
 
 jobs:
-  # Build on Github Ubuntu to save the resource
-  build-frontend:
-    runs-on: ubuntu-latest
+  deploy:
+    runs-on: [self-hosted, home, dellbuntu]
     steps:
       - uses: actions/checkout@v4
 
-      # Cached install (default). Skip this step when forcing a cold install.
-      - uses: actions/setup-node@v4
-        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.force_npm_install) }}
-        with:
-          node-version: "20"
-          cache: npm
-
-      # Cold install path — no npm cache restore
-      - uses: actions/setup-node@v4
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.force_npm_install }}
-        with:
-          node-version: "20"
-
-      - name: Install dependencies
+      - name: Ensure deploy directory
         run: |
-          if [ "${{ github.event_name == 'workflow_dispatch' && inputs.force_npm_install }}" = "true" ]; then
-            npm cache clean --force
-            rm -rf node_modules
+          sudo mkdir -p ${{ env.DEPLOY_DIR }}
+          sudo chown -R gh-runner:gh-runner ${{ env.DEPLOY_DIR }}
+
+      - name: Sync source into deploy directory
+        run: |
+          rsync -a --delete \
+            --exclude '.git' \
+            --exclude 'node_modules' \
+            --exclude 'server/node_modules' \
+            --exclude 'dist' \
+            --exclude '.env' \
+            ./ ${{ env.DEPLOY_DIR }}/src/
+
+      - name: Require server .env
+        run: |
+          if [ ! -f ${{ env.DEPLOY_DIR }}/.env ]; then
+            echo "Missing ${{ env.DEPLOY_DIR }}/.env — copy .env.example and set secrets before deploying."
+            exit 1
           fi
-          npm ci --legacy-peer-deps
+          # Compose reads .env from the project directory
+          cp ${{ env.DEPLOY_DIR }}/.env ${{ env.DEPLOY_DIR }}/src/.env
 
-      - name: Build frontend
+      - name: Build and start Compose stack
+        working-directory: ${{ env.DEPLOY_DIR }}/src
         run: |
-          npm run build
-          # Patch modular Nginx snippet into dist (active deploy path)
-          cp infra/nginx/modular.conf dist/nginx.modular.conf
-          sed -i "s/\${PROJECT_NAME}/${{ env.PROJECT_NAME }}/g" dist/nginx.modular.conf
+          docker compose pull || true
+          docker compose up -d --build --remove-orphans
 
-      - name: Upload built artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ env.PROJECT_NAME }}-dist
-          path: dist
-
-  # Deploy to Dellbuntu | My Home Server
-  # NOTE: This requires passwordless sudo for gh-runner user
-  # Run on server: sudo visudo and add: gh-runner ALL=(ALL) NOPASSWD: ALL
-  deploy-frontend:
-    runs-on: [self-hosted, home, dellbuntu]
-    needs: build-frontend
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          name: ${{ env.PROJECT_NAME }}-dist
-          path: dist
-
-      - name: Prepare nginx deploy path
+      - name: Install host Nginx include
         run: |
-          sudo mkdir -p /var/www/${{ env.PROJECT_NAME }}
-          sudo chown -R gh-runner:gh-runner /var/www/${{ env.PROJECT_NAME }}
-
-      - name: Deploy frontend to nginx folder
-        run: |
-          WWW="/var/www/${{ env.PROJECT_NAME }}"
-          # Stage new build, then swap (avoids serving a half-copied tree)
-          rm -rf "$WWW/dist.next"
-          cp -r dist "$WWW/dist.next"
-          sudo cp "$WWW/dist.next/nginx.modular.conf" /etc/nginx/includes/projects/${{ env.PROJECT_NAME }}.conf
+          EDGE_PORT=$(grep -E '^EDGE_PORT=' ${{ env.DEPLOY_DIR }}/.env | cut -d= -f2- || echo "${{ env.EDGE_PORT }}")
+          EDGE_PORT=${EDGE_PORT:-${{ env.EDGE_PORT }}}
+          sed -e "s/\${PROJECT_NAME}/${{ env.PROJECT_NAME }}/g" \
+              -e "s/\${EDGE_PORT}/${EDGE_PORT}/g" \
+              ${{ env.DEPLOY_DIR }}/src/infra/nginx/modular.conf \
+            | sudo tee /etc/nginx/includes/projects/${{ env.PROJECT_NAME }}.conf > /dev/null
           sudo nginx -t
-          if [ -d "$WWW/dist" ]; then
-            mv "$WWW/dist" "$WWW/dist.prev"
-          fi
-          mv "$WWW/dist.next" "$WWW/dist"
           sudo nginx -s reload
-          rm -rf "$WWW/dist.prev"
 
-      - name: Cleanup downloaded artifacts
-        if: success()
+      - name: Health check
         run: |
-          rm -rf dist
-          rm -rf /tmp/${{ env.PROJECT_NAME }}-* || true
-
-  # NOTE: Commented out to save build minutes.
-  # cleanup-artifacts:
-  #   runs-on: ubuntu-latest
-  #   needs: [build-frontend, deploy-frontend]
-  #   if: always()
-  #   steps:
-  #     - name: Delete artifacts
-  #       uses: actions/github-script@v7
-  #       with:
-  #         script: |
-  #           const artifacts = await github.rest.actions.listWorkflowRunArtifacts({
-  #             owner: context.repo.owner,
-  #             repo: context.repo.repo,
-  #             run_id: context.runId,
-  #           });
-  #
-  #           for (const artifact of artifacts.data.artifacts) {
-  #             await github.rest.actions.deleteArtifact({
-  #               owner: context.repo.owner,
-  #               repo: context.repo.repo,
-  #               artifact_id: artifact.id,
-  #             });
-  #             console.log(`Deleted artifact: ${artifact.name}`);
-  #           }
+          sleep 3
+          curl -fsS "http://127.0.0.1:${{ env.EDGE_PORT }}/healthz"
+          curl -fsS "http://127.0.0.1:${{ env.EDGE_PORT }}/devnet/api/health"

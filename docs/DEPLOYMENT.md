@@ -1,36 +1,37 @@
 # DevNet Deployment
 
-DevNet is a static Vite SPA. Production deploys via **GitHub Actions**: build on `ubuntu-latest`, then sync artifacts to a **self-hosted runner** (Dellbuntu / home Nginx) and serve under the path **`/devnet/`**.
+DevNet runs as a **Docker Compose** stack on a dedicated bridge network named **`devnet`**: PostgreSQL, Redis, a scalable Fastify API, and an edge Nginx that serves the SPA and proxies `/devnet/api`. The host Nginx on `launch.giangnt.dev` only reverse-proxies `/devnet/` to the edge container on loopback.
 
 **Live URL:** [https://launch.giangnt.dev/devnet/](https://launch.giangnt.dev/devnet/)
 
-## Diagram
+## Diagrams
 
-Open the interactive diagram (export to PNG/PDF via the ⋯ menu):
-
-**[deployment-flow.html](deployment-flow.html)**
+- Deploy process: **[deployment-flow.html](deployment-flow.html)**
+- System design: **[system-design.html](system-design.html)**
 
 ```mermaid
 flowchart LR
   A([Start]) --> B[Push to main]
-  B --> C[Build on ubuntu-latest]
-  C --> D[Upload dist artifact]
-  D --> E[Download on Dellbuntu]
-  E --> F[Atomic swap dist]
+  B --> C[Checkout on Dellbuntu]
+  C --> D[rsync to /var/www/devnet]
+  D --> E[docker compose up --build]
+  E --> F[Install host Nginx include]
   F --> G{nginx -t OK?}
   G -->|Yes| H[nginx -s reload]
   G -->|No| X([Deploy failed])
-  H --> Z([Live /devnet/])
+  H --> I[Health check]
+  I --> Z([Live /devnet/])
 
   style A fill:#083344,stroke:#22d3ee,color:#fff
   style Z fill:#083344,stroke:#22d3ee,color:#fff
   style X fill:#083344,stroke:#fb7185,color:#fff
   style B fill:#064e3b,stroke:#34d399,color:#fff
-  style C fill:#4c1d95,stroke:#a78bfa,color:#fff
-  style D fill:#4c1d95,stroke:#a78bfa,color:#fff
-  style E fill:#78350f,stroke:#fbbf24,color:#fff
+  style C fill:#78350f,stroke:#fbbf24,color:#fff
+  style D fill:#78350f,stroke:#fbbf24,color:#fff
+  style E fill:#4c1d95,stroke:#a78bfa,color:#fff
   style F fill:#78350f,stroke:#fbbf24,color:#fff
   style H fill:#78350f,stroke:#fbbf24,color:#fff
+  style I fill:#4c1d95,stroke:#a78bfa,color:#fff
   style G fill:#881337,stroke:#fb7185,color:#fff
 ```
 
@@ -40,73 +41,73 @@ flowchart LR
 | --- | --- |
 | Trigger | Push to `main`, or manual **workflow_dispatch** |
 | Workflow | [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml) |
-| Project name | `devnet` (`PROJECT_NAME`) |
-| Origin host | `launch.giangnt.dev` (`ORIGIN_SERVER_NAME`) |
+| Project name | `devnet` |
+| Compose network | `devnet` (bridge) |
+| Edge bind | `127.0.0.1:${EDGE_PORT}` (default `8088`) |
 | App base path | `/devnet/` (`vite.config.ts` `base`, `App.tsx` `basename`) |
-| Nginx style | **Modular** include (`infra/nginx/modular.conf`) — not standalone |
-| Infra root | [`infra/nginx/`](../infra/nginx/) |
+| Host Nginx | Proxies `/devnet/` → edge ([`infra/nginx/modular.conf`](../infra/nginx/modular.conf)) |
 
-### Job 1 — `build-frontend` (`ubuntu-latest`)
+### Job — `deploy` (self-hosted: `home`, `dellbuntu`)
 
-1. Checkout + Node 20 (npm cache enabled by default)
-2. `npm ci --legacy-peer-deps` and `npm run build` → `dist/`
-3. Copy `infra/nginx/modular.conf` → `dist/nginx.modular.conf`, substitute `${PROJECT_NAME}`
-4. Upload artifact `devnet-dist`
+1. Checkout repository
+2. Rsync into `/var/www/devnet/src` (excludes `.env`, `node_modules`)
+3. Require `/var/www/devnet/.env` (copy into compose project dir)
+4. `docker compose up -d --build --remove-orphans`
+5. Substitute and install host Nginx include, `nginx -t`, reload
+6. Curl edge `/healthz` and `/devnet/api/health`
 
-**Force a cold npm install** (bypass cache): Actions → this workflow → **Run workflow** → enable *Bypass npm cache and run a cold install*.
+### Compose services
 
-### Job 2 — `deploy-frontend` (self-hosted: `home`, `dellbuntu`)
+| Service | Role | Ports |
+| --- | --- | --- |
+| `postgres` | PostgreSQL 16 | internal only |
+| `redis` | Sessions + cache | internal only |
+| `api` | Fastify API (scaleable) | `127.0.0.1:4000` (local Vite) |
+| `edge` | SPA + `/devnet/api` proxy | `127.0.0.1:${EDGE_PORT}` |
 
-Runs only after a successful build.
+Scale API replicas (edge uses Docker DNS `resolver 127.0.0.11`):
 
-1. Download `devnet-dist` into `dist/`
-2. Ensure `/var/www/devnet` exists and is owned by `gh-runner`
-3. Stage to `/var/www/devnet/dist.next`, install Nginx snippet, `nginx -t`, then atomic swap to `dist`
-4. `sudo nginx -s reload` (other sites on the host keep serving)
-5. Remove `dist.prev` and clean runner-local `dist/`
+```sh
+cd /var/www/devnet/src
+docker compose up -d --scale api=3
+```
 
-### What Nginx serves
-
-From `infra/nginx/modular.conf` (after substitution):
-
-- `location /devnet/` → alias `/var/www/devnet/dist/` with SPA `try_files` fallback
-- `location = /devnet` → `301` redirect to `/devnet/`
-
-The site is path-mounted on the shared host. `infra/nginx/standalone.conf` is a root-vhost template for a future standalone deploy.
+Postgres and Redis stay single instances with named volumes.
 
 ## Prerequisites (server)
 
 - Self-hosted GitHub Actions runner with labels `self-hosted`, `home`, `dellbuntu`
-- User `gh-runner` with **passwordless sudo** (needed for Nginx include path, `nginx -t`, reload):
+- Docker Engine + Docker Compose plugin
+- Passwordless sudo for `gh-runner` (Nginx include path, `nginx -t`, reload)
+- One-time secrets file:
 
-  ```text
-  gh-runner ALL=(ALL) NOPASSWD: ALL
+  ```sh
+  sudo mkdir -p /var/www/devnet
+  sudo chown gh-runner:gh-runner /var/www/devnet
+  cp /path/to/repo/.env.example /var/www/devnet/.env
+  # edit JWT_SECRET, POSTGRES_PASSWORD, ADMIN_*, EDGE_PORT
   ```
 
-  (As noted in the workflow; tighten later if desired.)
-
-- Nginx already includes configs from `/etc/nginx/includes/projects/` (or equivalent)
-
-## Local build / preview
+## Local stack
 
 ```sh
-npm run build
-npm run preview
+cp .env.example .env
+docker compose up -d --build
 ```
 
-Output is in `dist/`. Production path routing uses Vite `base` `/devnet/` (already set).
+Open [http://127.0.0.1:8088/devnet/](http://127.0.0.1:8088/devnet/).
 
-## Backend note
-
-There is no app server in this pipeline. Auth and data stay on **Supabase**. Nginx only serves static files; API proxy blocks in `infra/nginx/standalone.conf` remain commented out.
+For SPA hot reload: keep Compose up and run `npm run dev` (Vite proxies `/devnet/api` → `:4000`).
 
 ## Related files
 
 | File | Role |
 | --- | --- |
-| `.github/workflows/deploy.yml` | CI/CD pipeline |
-| `infra/nginx/modular.conf` | Path-mounted Nginx snippet (active) |
-| `infra/nginx/standalone.conf` | Standalone vhost template (unused by current job) |
-| `vite.config.ts` | `base: "/devnet/"` |
-| `src/App.tsx` | `BrowserRouter basename="/devnet"` |
-| `docs/deployment-flow.html` | Visual process diagram |
+| `docker-compose.yml` | Stack definition |
+| `.github/workflows/deploy.yml` | CI/CD |
+| `infra/nginx/edge.conf` | In-compose edge Nginx |
+| `infra/nginx/modular.conf` | Host path-mount proxy |
+| `infra/nginx/standalone.conf` | Standalone vhost proxy template |
+| `server/` | Fastify API + SQL migrations |
+| `docs/system-design.html` | Architecture diagram |
+| `docs/deployment-flow.html` | Deploy process diagram |

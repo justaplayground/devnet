@@ -11,13 +11,13 @@ interface PostCardProps {
   post: {
     id: string;
     title: string;
-    excerpt: string;
+    excerpt: string | null;
     content: string;
     cover_image_url?: string;
     author: {
       username: string;
-      display_name: string;
-      avatar_url?: string;
+      display_name: string | null;
+      avatar_url?: string | null;
     };
     tags: Array<{
       name: string;
@@ -62,7 +62,7 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
       <CardHeader className="pb-4">
         <div className="flex items-center space-x-3 mb-3">
           <Avatar className="h-8 w-8">
-            <AvatarImage src={post.author.avatar_url} />
+            <AvatarImage src={post.author.avatar_url ?? undefined} />
             <AvatarFallback className="bg-gradient-primary text-white text-xs">
               {post.author.username.charAt(0).toUpperCase()}
             </AvatarFallback>

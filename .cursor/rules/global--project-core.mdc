@@ -8,9 +8,9 @@ alwaysApply: true
 ## Project nature
 
 - **Developer community SPA** (Dev.to–style): posts, tags, auth, engagement, and an admin dashboard.
-- **Not a monorepo / microservices app.** One Vite frontend talks to Supabase (Postgres + Auth + RLS).
+- **Not a monorepo.** One Vite frontend + one Fastify API (`server/`) talking to PostgreSQL and Redis on Docker Compose network `devnet`.
 - **Roles matter:** admin and moderator gates for `/admin`; keep RBAC and input sanitization (e.g. markdown/HTML) intact.
-- **Primary overview:** `README.md`. There is no `docs/` product/requirements tree.
+- **Primary overview:** `README.md`. Deploy docs live under `docs/`.
 
 ## Stack
 
@@ -18,12 +18,12 @@ alwaysApply: true
 | ------- | -------- |
 | UI | React 18 + TypeScript + Vite 5 |
 | Routing | `react-router-dom` v6 (`basename="/devnet"`) |
-| Data | TanStack Query + `@supabase/supabase-js` |
+| Data | TanStack Query + `src/lib/api.ts` (fetch, cookie credentials) |
 | UI kit | shadcn/ui (Radix) + Tailwind CSS |
-| Auth / DB | Supabase (`src/integrations/supabase/`, `supabase/migrations/`) |
-| Deploy | GitHub Actions → static `dist/` on Nginx (`launch.giangnt.dev`, project `devnet`) |
+| Auth / DB | Fastify API + PostgreSQL + Redis (`server/`) |
+| Deploy | GitHub Actions → Docker Compose on Dellbuntu; host Nginx proxies `/devnet/` |
 
-Dev server: port **8080**. Production base path: **`/devnet/`** (see `vite.config.ts` and `App.tsx`).
+Dev server: port **8080** (proxies `/devnet/api` → `:4000`). Production base path: **`/devnet/`**.
 
 ## Repo layout
 
@@ -31,15 +31,14 @@ Dev server: port **8080**. Production base path: **`/devnet/`** (see `vite.confi
 src/
   pages/           → Index, Auth, Write, Admin, AdminLogin, NotFound
   components/      → Layout, PostCard, ui/* (shadcn)
-  contexts/        → AuthContext (Supabase session + admin check)
+  contexts/        → AuthContext (cookie session + admin flags)
   hooks/           → shared React hooks
-  integrations/supabase/ → client + generated types
-  lib/             → utilities (e.g. cn)
-public/            → static assets
-supabase/          → config + SQL migrations
-infra/nginx/       → modular + standalone Nginx templates
-docs/              → DEPLOYMENT.md + deploy diagram
-.github/workflows/ → build + deploy
+  lib/             → api.ts, cn, utilities
+server/            → Fastify API, SQL migrations, Redis cache
+infra/nginx/       → edge (Compose) + modular/standalone host templates
+docs/              → DEPLOYMENT.md + diagrams
+docker-compose.yml → postgres, redis, api, edge on network `devnet`
+.github/workflows/ → deploy
 ```
 
 Path alias: `@` → `src/`.
@@ -50,9 +49,9 @@ Path alias: `@` → `src/`.
 | ------ | ----------- |
 | Features / setup | `README.md` |
 | Routes / providers | `src/App.tsx`, `src/contexts/AuthContext.tsx` |
-| Schema / RLS / roles | `supabase/migrations/*.sql`, `src/integrations/supabase/types.ts` |
-| Supabase client | `src/integrations/supabase/client.ts` |
-| Deploy / base path | `vite.config.ts`, `infra/nginx/`, `.github/workflows/deploy.yml`, `docs/DEPLOYMENT.md` |
+| Schema / roles | `server/db/migrations/`, `server/src/routes/` |
+| API client | `src/lib/api.ts` |
+| Deploy / base path | `vite.config.ts`, `docker-compose.yml`, `infra/nginx/`, `.github/workflows/deploy.yml`, `docs/DEPLOYMENT.md` |
 | UI primitives | `src/components/ui/*` (prefer `shadcn` CLI when adding components) |
 
 Prefer matching existing page/component patterns over inventing new layers.
@@ -60,9 +59,9 @@ Prefer matching existing page/component patterns over inventing new layers.
 ## Scope discipline
 
 - Minimize diff scope; match patterns in the touched area.
-- Do not commit secrets or real Supabase keys in `.env` / client config.
+- Do not commit secrets in `.env` / client config.
 - Do not add markdown/docs unless the user asks.
-- Do not introduce a backend service, Prisma, or monorepo packages unless explicitly requested — Supabase is the backend.
+- Do not reintroduce Supabase or invent a monorepo unless explicitly requested.
 
 ## Diagrams
 
@@ -75,5 +74,5 @@ When asked for architecture, DB, or process diagrams, use the matching skill und
 ## Token discipline
 
 - Prefer `README.md` and the specific file you are changing over broad repo dumps.
-- Open Supabase migrations/types only when schema, RLS, or role behavior is in scope.
-- Do not assume Port-Vault / `docs/*` / `apps/*` / `services/*` layout — that is a different project.
+- Open `server/db/migrations` only when schema or role behavior is in scope.
+- Do not assume Port-Vault / `apps/*` / `services/*` layout — that is a different project.

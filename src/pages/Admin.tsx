@@ -1,50 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
+import { api, type AdminPost, type AdminStats, type AdminUser } from '@/lib/api';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Users, FileText, MessageSquare, BarChart3, Shield, ShieldCheck } from 'lucide-react';
+import { Users, FileText, MessageSquare, BarChart3, Shield } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-
-interface Profile {
-  id: string;
-  username: string;
-  display_name: string;
-  email: string;
-  is_admin: boolean;
-  is_moderator: boolean;
-  post_count: number;
-  created_at: string;
-}
-
-interface Post {
-  id: string;
-  title: string;
-  author: {
-    username: string;
-    display_name: string;
-  };
-  status: string;
-  created_at: string;
-  like_count: number;
-  comment_count: number;
-}
 
 const Admin = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [users, setUsers] = useState<Profile[]>([]);
-  const [posts, setPosts] = useState<Post[]>([]);
-  const [stats, setStats] = useState({
+  const [users, setUsers] = useState<AdminUser[]>([]);
+  const [posts, setPosts] = useState<AdminPost[]>([]);
+  const [stats, setStats] = useState<AdminStats>({
     totalUsers: 0,
     totalPosts: 0,
     totalComments: 0,
-    todayPosts: 0
+    todayPosts: 0,
   });
 
   useEffect(() => {
@@ -58,13 +34,7 @@ const Admin = () => {
     }
 
     try {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('is_admin, is_moderator')
-        .eq('user_id', user.id)
-        .single();
-
-      if (profile?.is_admin || profile?.is_moderator) {
+      if (user.isAdmin || user.isModerator) {
         setIsAuthorized(true);
         await loadData();
       }
@@ -77,119 +47,49 @@ const Admin = () => {
 
   const loadData = async () => {
     try {
-      // Load users
-      const { data: usersData } = await supabase
-        .from('profiles')
-        .select(`
-          id,
-          username,
-          display_name,
-          is_admin,
-          is_moderator,
-          post_count,
-          created_at,
-          user_id
-        `)
-        .order('created_at', { ascending: false })
-        .limit(50);
-
-      // Get email from auth metadata
-      const usersWithEmail = await Promise.all(
-        (usersData || []).map(async (profile) => {
-          const { data: authUser } = await supabase.auth.admin.getUserById(profile.user_id);
-          return {
-            ...profile,
-            email: authUser.user?.email || 'N/A'
-          };
-        })
-      );
-
-      setUsers(usersWithEmail);
-
-      // Load posts
-      const { data: postsData } = await supabase
-        .from('posts')
-        .select(`
-          id,
-          title,
-          status,
-          created_at,
-          like_count,
-          comment_count,
-          profiles!posts_author_id_fkey (
-            username,
-            display_name
-          )
-        `)
-        .order('created_at', { ascending: false })
-        .limit(50);
-
-      setPosts(postsData?.map(post => ({
-        ...post,
-        author: post.profiles
-      })) || []);
-
-      // Load stats
-      const { count: totalUsers } = await supabase
-        .from('profiles')
-        .select('*', { count: 'exact', head: true });
-
-      const { count: totalPosts } = await supabase
-        .from('posts')
-        .select('*', { count: 'exact', head: true });
-
-      const { count: totalComments } = await supabase
-        .from('comments')
-        .select('*', { count: 'exact', head: true });
-
-      const today = new Date().toISOString().split('T')[0];
-      const { count: todayPosts } = await supabase
-        .from('posts')
-        .select('*', { count: 'exact', head: true })
-        .gte('created_at', today);
-
-      setStats({
-        totalUsers: totalUsers || 0,
-        totalPosts: totalPosts || 0,
-        totalComments: totalComments || 0,
-        todayPosts: todayPosts || 0
-      });
-
+      const [usersRes, postsRes, statsRes] = await Promise.all([
+        api.adminUsers(),
+        api.adminPosts(),
+        api.adminStats(),
+      ]);
+      setUsers(usersRes.users);
+      setPosts(postsRes.posts);
+      setStats(statsRes.stats);
     } catch (error) {
       console.error('Error loading data:', error);
       toast({
-        title: "Error",
-        description: "Failed to load admin data",
-        variant: "destructive",
+        title: 'Error',
+        description: 'Failed to load admin data',
+        variant: 'destructive',
       });
     }
   };
 
   const toggleUserRole = async (userId: string, role: 'admin' | 'moderator', currentValue: boolean) => {
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({ [`is_${role}`]: !currentValue })
-        .eq('user_id', userId);
+      await api.updateUserRole(userId, role, !currentValue);
 
-      if (error) throw error;
-
-      setUsers(users.map(user => 
-        user.id === userId 
-          ? { ...user, [`is_${role}`]: !currentValue }
-          : user
-      ));
+      setUsers(
+        users.map((u) =>
+          u.user_id === userId
+            ? {
+                ...u,
+                ...(role === 'admin' ? { is_admin: !currentValue } : { is_moderator: !currentValue }),
+              }
+            : u,
+        ),
+      );
 
       toast({
-        title: "Success",
+        title: 'Success',
         description: `User ${role} status updated`,
       });
     } catch (error) {
       console.error('Error updating user role:', error);
       toast({
-        title: "Error",
-        description: "Failed to update user role",
-        variant: "destructive",
+        title: 'Error',
+        description: 'Failed to update user role',
+        variant: 'destructive',
       });
     }
   };
@@ -242,7 +142,6 @@ const Admin = () => {
         <p className="text-muted-foreground">Manage users, content, and platform settings</p>
       </div>
 
-      {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -253,7 +152,7 @@ const Admin = () => {
             <div className="text-2xl font-bold">{stats.totalUsers}</div>
           </CardContent>
         </Card>
-        
+
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Posts</CardTitle>
@@ -263,7 +162,7 @@ const Admin = () => {
             <div className="text-2xl font-bold">{stats.totalPosts}</div>
           </CardContent>
         </Card>
-        
+
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Comments</CardTitle>
@@ -273,7 +172,7 @@ const Admin = () => {
             <div className="text-2xl font-bold">{stats.totalComments}</div>
           </CardContent>
         </Card>
-        
+
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Posts Today</CardTitle>
@@ -285,7 +184,6 @@ const Admin = () => {
         </Card>
       </div>
 
-      {/* Tabs */}
       <Tabs defaultValue="users" className="space-y-6">
         <TabsList>
           <TabsTrigger value="users">Users</TabsTrigger>
@@ -312,41 +210,37 @@ const Admin = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {users.map((user) => (
-                    <TableRow key={user.id}>
+                  {users.map((u) => (
+                    <TableRow key={u.id}>
                       <TableCell>
                         <div>
-                          <div className="font-medium">{user.display_name || user.username}</div>
-                          <div className="text-sm text-muted-foreground">@{user.username}</div>
+                          <div className="font-medium">{u.display_name || u.username}</div>
+                          <div className="text-sm text-muted-foreground">@{u.username}</div>
                         </div>
                       </TableCell>
-                      <TableCell>{user.email}</TableCell>
-                      <TableCell>{user.post_count || 0}</TableCell>
+                      <TableCell>{u.email}</TableCell>
+                      <TableCell>{u.post_count || 0}</TableCell>
                       <TableCell>
                         <div className="flex gap-1">
-                          {user.is_admin && <Badge variant="destructive">Admin</Badge>}
-                          {user.is_moderator && <Badge variant="warning">Moderator</Badge>}
-                          {!user.is_admin && !user.is_moderator && <Badge variant="secondary">User</Badge>}
+                          {u.is_admin && <Badge variant="destructive">Admin</Badge>}
+                          {u.is_moderator && <Badge variant="warning">Moderator</Badge>}
+                          {!u.is_admin && !u.is_moderator && <Badge variant="secondary">User</Badge>}
                         </div>
                       </TableCell>
-                      <TableCell>
-                        {new Date(user.created_at).toLocaleDateString()}
-                      </TableCell>
+                      <TableCell>{new Date(u.created_at).toLocaleDateString()}</TableCell>
                       <TableCell>
                         <div className="flex gap-2">
                           <Button
                             size="sm"
-                            variant={user.is_admin ? "destructive" : "outline"}
-                            onClick={() => toggleUserRole(user.id, 'admin', user.is_admin)}
-                          >
-                            {user.is_admin ? 'Remove Admin' : 'Make Admin'}
+                            variant={u.is_admin ? 'destructive' : 'outline'}
+                            onClick={() => toggleUserRole(u.user_id, 'admin', u.is_admin)}>
+                            {u.is_admin ? 'Remove Admin' : 'Make Admin'}
                           </Button>
                           <Button
                             size="sm"
-                            variant={user.is_moderator ? "warning" : "outline"}
-                            onClick={() => toggleUserRole(user.id, 'moderator', user.is_moderator)}
-                          >
-                            {user.is_moderator ? 'Remove Mod' : 'Make Mod'}
+                            variant={u.is_moderator ? 'warning' : 'outline'}
+                            onClick={() => toggleUserRole(u.user_id, 'moderator', u.is_moderator)}>
+                            {u.is_moderator ? 'Remove Mod' : 'Make Mod'}
                           </Button>
                         </div>
                       </TableCell>
@@ -390,9 +284,7 @@ const Admin = () => {
                           {post.like_count} likes • {post.comment_count} comments
                         </div>
                       </TableCell>
-                      <TableCell>
-                        {new Date(post.created_at).toLocaleDateString()}
-                      </TableCell>
+                      <TableCell>{new Date(post.created_at).toLocaleDateString()}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
