@@ -21,7 +21,7 @@ alwaysApply: true
 | Data | TanStack Query + `@supabase/supabase-js` |
 | UI kit | shadcn/ui (Radix) + Tailwind CSS |
 | Auth / DB | Supabase (`src/integrations/supabase/`, `supabase/migrations/`) |
-| Deploy | GitHub Actions → static `dist/` on Nginx (`justdemo.work`, project `devnet`) |
+| Deploy | GitHub Actions → static `dist/` on Nginx (`launch.giangnt.dev`, project `devnet`) |
 
 Dev server: port **8080**. Production base path: **`/devnet/`** (see `vite.config.ts` and `App.tsx`).
 
@@ -37,8 +37,8 @@ src/
   lib/             → utilities (e.g. cn)
 public/            → static assets
 supabase/          → config + SQL migrations
-nginx.conf         → standalone Nginx site
-nginx.modular.conf → path-mounted deploy snippet
+infra/nginx/       → modular + standalone Nginx templates
+docs/              → DEPLOYMENT.md + deploy diagram
 .github/workflows/ → build + deploy
 ```
 
@@ -52,7 +52,7 @@ Path alias: `@` → `src/`.
 | Routes / providers | `src/App.tsx`, `src/contexts/AuthContext.tsx` |
 | Schema / RLS / roles | `supabase/migrations/*.sql`, `src/integrations/supabase/types.ts` |
 | Supabase client | `src/integrations/supabase/client.ts` |
-| Deploy / base path | `vite.config.ts`, `nginx*.conf`, `.github/workflows/deploy.yml` |
+| Deploy / base path | `vite.config.ts`, `infra/nginx/`, `.github/workflows/deploy.yml`, `docs/DEPLOYMENT.md` |
 | UI primitives | `src/components/ui/*` (prefer `shadcn` CLI when adding components) |
 
 Prefer matching existing page/component patterns over inventing new layers.

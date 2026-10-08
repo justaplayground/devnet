@@ -1,0 +1,10 @@
+# Build output
+dist/
+dist-ssr/
+output/
+
+# Environment variables
+.env
+
+# Local-only files
+*.local
